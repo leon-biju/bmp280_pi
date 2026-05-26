@@ -3,11 +3,6 @@
 #include <linux/printk.h>
 
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("LEON");
-
-MODULE_DESCRIPTION("Hello universe!");
-
 
 static int __init hello_init(void)
 {
