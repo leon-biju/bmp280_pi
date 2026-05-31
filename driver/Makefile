@@ -2,10 +2,15 @@ KDIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST)))/../rpi-linux)
 ARCH := arm64
 CROSS_COMPILE := aarch64-linux-gnu-
 
-obj-m := driver.o
+MODULE := bme280_pi
+obj-m := $(MODULE).o
+
+BUILD := $(PWD)/build
 
 all:
-	make -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
+	@mkdir -p $(BUILD)
+	$(MAKE) -C $(KDIR) M=$(PWD) MO=$(BUILD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
 
 clean:
-	make -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) clean
+	$(MAKE) -C $(KDIR) M=$(PWD) MO=$(BUILD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) clean
+	@rm -rf $(BUILD)

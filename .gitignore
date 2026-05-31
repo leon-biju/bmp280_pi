@@ -1,15 +1,7 @@
 # Kernel source (build dependency, cloned separately)
 rpi-linux/
 
-# Kernel module build artifacts
-*.o
-*.ko
-*.mod
-*.mod.c
-*.mod.o
-.*.cmd
-modules.order
-Module.symvers
+build/
 
 .vscode/
 .idea/
