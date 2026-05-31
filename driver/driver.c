@@ -162,6 +162,6 @@ static void __exit bme280_pi_exit(void)
 module_init(bme280_pi_init);
 module_exit(bme280_pi_exit);
 
-MODULE_LICENSE("MIT");
+MODULE_LICENSE("GPL");
 MODULE_AUTHOR("LEON BIJU");
 MODULE_DESCRIPTION("BME280 Pi dummy IIO driver. Temp hardcoded channels, no hardware");
