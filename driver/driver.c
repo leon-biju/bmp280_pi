@@ -45,7 +45,7 @@ static int bme280_pi_read_raw(
                 struct iio_chan_spec const *channel,
                 int *out_val, int *out_val2, long mask)
 {
-       switch (mask) {
+        switch (mask) {
         case IIO_CHAN_INFO_RAW:
                switch (channel->type) {
                 //Should take the actual reading here
@@ -65,7 +65,7 @@ static int bme280_pi_read_raw(
         /* Scale factors so userspace can do value = raw * scale
            IIO_VAL_INT_PLUS_MICRO means scale = out_val + out_val2(1e-6) */
         case IIO_CHAN_INFO_SCALE:
-               switch (channel->type) {
+                switch (channel->type) {
                 case IIO_TEMP:
                         *out_val = 0;
                         *out_val2 = 1000; // 0.001 C
@@ -162,6 +162,6 @@ static void __exit bme280_pi_exit(void)
 module_init(bme280_pi_init);
 module_exit(bme280_pi_exit);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("MIT");
 MODULE_AUTHOR("LEON BIJU");
 MODULE_DESCRIPTION("BME280 Pi dummy IIO driver. Temp hardcoded channels, no hardware");
