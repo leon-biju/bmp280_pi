@@ -1,6 +1,8 @@
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
+#include <linux/regmap.h>
+#include "bmp280_pi.h"
 
 #define DRIVER_NAME "bmp280_pi"
 
@@ -62,18 +64,49 @@ static const struct iio_info bmp280_pi_info = {
 static int bmp280_pi_probe(struct i2c_client *client)
 {
         struct iio_dev *indio_dev;
-        indio_dev = devm_iio_device_alloc(&client->dev, 0);
+        indio_dev = devm_iio_device_alloc(&client->dev, sizeof(struct bmp280_priv_state));
         if (!indio_dev) {
                 return -ENOMEM;
         }
 
+        // Setup driver's private state
+        struct bmp280_priv_state *priv_state = iio_priv(indio_dev);
+
+        static const struct regmap_config cfg = {
+                .reg_bits = 8,
+                .val_bits = 8,
+        };
+        struct regmap *regmap = devm_regmap_init_i2c(client, &cfg);
+
+        if (IS_ERR(regmap)) {
+                return PTR_ERR(regmap);
+        }
+
+        priv_state->regmap = regmap;
+
+        mutex_init(&priv_state->lock);
+
+        // Make sure the register value matches for BMP280 so register 0xD0 == 0x58
+        unsigned int reg_val;
+
+        int res = regmap_read(regmap, 0xD0, &reg_val);
+        if (res) {
+                dev_err(&client->dev, "Failed to read regmap!", reg_val);
+                return res;
+        }
+        if (reg_val != 0x58) {
+                dev_err(&client->dev, "Register 0xD0: expected 0x58 but got 0x%02X\n", reg_val);
+                return -ENODEV;
+        }
+
+        // All good now just setup and register the device
         indio_dev->name = DRIVER_NAME;
         indio_dev->info = &bmp280_pi_info;
         indio_dev->modes = INDIO_DIRECT_MODE;
         indio_dev->channels = bmp280_pi_channels;
         indio_dev->num_channels = ARRAY_SIZE(bmp280_pi_channels);
 
-        dev_info(&client->dev, "bmp280_pi: probed at 0x%02x\n", client->addr);
+        dev_info(&client->dev, "Successfully probed at 0x%02X\n", client->addr);
         
         return devm_iio_device_register(&client->dev, indio_dev);
 }
