@@ -2,7 +2,7 @@
 /plugin/;
 
 / {
-    compatible = "bch,bcm2835";
+    compatible = "brcm,bcm2835";
 
     fragment@0 {
         target = <&i2c1>;
@@ -10,8 +10,8 @@
             #address-cells = <1>;
             #size-cells = <0>;
 
-            bme280@76 {
-                compatible = "leon,bme280-pi";
+            bmp280@76 {
+                compatible = "leon,bmp280-pi";
                 reg = <0x76>;
                 status = "okay";
             };

@@ -2,7 +2,7 @@ KDIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST)))/../rpi-linux)
 ARCH := arm64
 CROSS_COMPILE := aarch64-linux-gnu-
 
-MODULE := bme280_pi
+MODULE := bmp280_pi
 obj-m := $(MODULE).o
 
 BUILD := $(PWD)/build
