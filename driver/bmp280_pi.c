@@ -63,13 +63,14 @@ static const struct iio_info bmp280_pi_info = {
 
 static int bmp280_pi_probe(struct i2c_client *client)
 {
+        // 0. Allocate space
         struct iio_dev *indio_dev;
         indio_dev = devm_iio_device_alloc(&client->dev, sizeof(struct bmp280_priv_state));
         if (!indio_dev) {
                 return -ENOMEM;
         }
 
-        // Setup driver's private state
+        // 1. Setup driver's private state
         struct bmp280_priv_state *priv_state = iio_priv(indio_dev);
 
         static const struct regmap_config cfg = {
@@ -86,12 +87,12 @@ static int bmp280_pi_probe(struct i2c_client *client)
 
         mutex_init(&priv_state->lock);
 
-        // Make sure the register value matches for BMP280 so register 0xD0 == 0x58
+        // 2. Chip ID check for BMP280 so register 0xD0 reads 0x58
         unsigned int reg_val;
 
         int res = regmap_read(regmap, 0xD0, &reg_val);
         if (res) {
-                dev_err(&client->dev, "Failed to read regmap!", reg_val);
+                dev_err(&client->dev, "Failed to read regmap!");
                 return res;
         }
         if (reg_val != 0x58) {
@@ -99,7 +100,18 @@ static int bmp280_pi_probe(struct i2c_client *client)
                 return -ENODEV;
         }
 
-        // All good now just setup and register the device
+        // 3. Read calibration values into priv_state
+        // Note: we don't need to worry about endianness since we set val_bits = 8
+        // Note: make sure the struct is packed tight with no padding.
+        regmap_bulk_read(regmap, 0x88, &priv_state->parameter_buffer, 24);
+
+        // Sanity print
+        dev_info(&client->dev, "dig_T1=%d", priv_state->parameter_buffer.dig_T1);
+        dev_info(&client->dev, "dig_P1=%d", priv_state->parameter_buffer.dig_P1);
+        dev_info(&client->dev, "dig_T2=%d", priv_state->parameter_buffer.dig_T2);
+        dev_info(&client->dev, "dig_P2=%d", priv_state->parameter_buffer.dig_P2);
+
+        // 4. Fill in and register the device
         indio_dev->name = DRIVER_NAME;
         indio_dev->info = &bmp280_pi_info;
         indio_dev->modes = INDIO_DIRECT_MODE;
