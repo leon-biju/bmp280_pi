@@ -9,6 +9,21 @@
 #define DUMMY_TEMP_RAW      25123
 #define DUMMY_PRESSURE_RAW  101325
 
+/* Register Addresses */
+#define BMP280_REG_CHIP_ID      0xD0
+#define BMP280_REG_CONFIG       0xF5
+#define BMP280_REG_CTRL_MEAS    0xF4
+#define BMP280_REG_CALIB_START  0x88
+#define BMP280_CALIB_LEN        24
+
+#define BMP280_CHIP_ID          0x58
+
+/* Config settings */
+#define BMP280_STANDBY_0_5MS    0x00
+#define BMP280_FILTER_OFF       0x00
+#define BMP280_SPI3W_OFF        0x00
+
+
 struct bmp280_priv_state {
         struct regmap *regmap;
         struct mutex lock;
@@ -87,6 +102,8 @@ static const struct iio_info bmp280_pi_info = {
 
 static int bmp280_pi_probe(struct i2c_client *client)
 {
+        int ret;
+
         // 0. Allocate space
         struct iio_dev *indio_dev;
         indio_dev = devm_iio_device_alloc(&client->dev, sizeof(struct bmp280_priv_state));
@@ -111,31 +128,38 @@ static int bmp280_pi_probe(struct i2c_client *client)
 
         mutex_init(&priv_state->lock);
 
-        // 2. Chip ID check for BMP280 so register 0xD0 reads 0x58
-        unsigned int reg_val;
+        // 2. Chip ID check for BMP280
+        unsigned int chip_id;
 
-        int res = regmap_read(regmap, 0xD0, &reg_val);
-        if (res) {
-                dev_err(&client->dev, "Failed to read regmap!");
-                return res;
+        ret = regmap_read(regmap, BMP280_REG_CHIP_ID, &chip_id);
+        if (ret) {
+                dev_err(&client->dev, "Failed to read Chip ID!");
+                return ret;
         }
-        if (reg_val != 0x58) {
-                dev_err(&client->dev, "Register 0xD0: expected 0x58 but got 0x%02X\n", reg_val);
+        if (chip_id != BMP280_CHIP_ID) {
+                dev_err(&client->dev, "Expected chip ID 0x%02X, but got 0x%02X!", BMP280_CHIP_ID, chip_id);
                 return -ENODEV;
         }
 
         // 3. Read calibration values into priv_state
+
         // Note: we don't need to worry about endianness since we set val_bits = 8
-        // Note: make sure the struct is packed tight with no padding.
-        regmap_bulk_read(regmap, 0x88, &priv_state->parameter_buffer, 24);
+        // Note: make sure the struct we are reading into is packed tight with no padding.
+        ret = regmap_bulk_read(regmap, BMP280_REG_CALIB_START, &priv_state->parameter_buffer, BMP280_CALIB_LEN);
+        if (ret) {
+                dev_err(&client->dev, "Failed to read Calibration parameters!");
+                return ret;
+        }
 
-        // Sanity print
-        dev_info(&client->dev, "dig_T1=%d", priv_state->parameter_buffer.dig_T1);
-        dev_info(&client->dev, "dig_P1=%d", priv_state->parameter_buffer.dig_P1);
-        dev_info(&client->dev, "dig_T2=%d", priv_state->parameter_buffer.dig_T2);
-        dev_info(&client->dev, "dig_P2=%d", priv_state->parameter_buffer.dig_P2);
+        // 4. Set config variable
+        u8 config = (BMP280_STANDBY_0_5MS << 5) | (BMP280_FILTER_OFF << 2) | BMP280_SPI3W_OFF;
+        ret = regmap_write(regmap, BMP280_REG_CONFIG, config);
+        if (ret) {
+                dev_err(&client->dev, "Failed to write to config!");
+                return ret;
+        }
 
-        // 4. Fill in and register the device
+        // 5. Fill in and register the device
         indio_dev->name = DRIVER_NAME;
         indio_dev->info = &bmp280_pi_info;
         indio_dev->modes = INDIO_DIRECT_MODE;
