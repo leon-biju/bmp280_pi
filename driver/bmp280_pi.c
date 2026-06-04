@@ -276,4 +276,4 @@ module_i2c_driver(bmp280_pi_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("LEON BIJU");
-MODULE_DESCRIPTION("BMP280 Pi dummy IIO driver. Temp hardcoded channels. Registers real device");
+MODULE_DESCRIPTION("BMP280 Pi IIO driver. Exposes temperature in m°C and pressure in kPa.");
