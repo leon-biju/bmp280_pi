@@ -38,7 +38,7 @@ struct bmp280_priv_state {
         struct regmap *regmap;
         struct mutex lock;
 
-        struct {
+        struct bmp280_calib_coeffs {
                 // Temperature coefficients
                 u16 dig_T1;
                 s16 dig_T2;
@@ -70,6 +70,44 @@ static const struct iio_chan_spec bmp280_pi_channels[] = {
 };
 
 
+// These two compensation functions are ripped straight from the Bosch BMP280 datasheet
+static s32 bmp280_pi_compensate_temp(s32 adc_T, struct bmp280_calib_coeffs *calib, s32 *out_t_fine)
+{
+        s32 var1, var2, T;
+
+        var1 = ((((adc_T >> 3) - ((s32)calib->dig_T1 << 1))) * ((s32)calib->dig_T2)) >> 11;
+        var2 = (((((adc_T >> 4) - ((s32)calib->dig_T1)) * ((adc_T >> 4) - ((s32)calib->dig_T1))) >> 12) * ((s32)calib->dig_T3)) >> 14;
+
+        *out_t_fine = var1 + var2;
+        T = (*out_t_fine * 5 + 128) >> 8;
+
+        return T;
+}
+
+static u32 bmp280_pi_compensate_pres(s32 adc_P, struct bmp280_calib_coeffs *calib, s32 t_fine)
+{
+        s64 var1, var2, P;
+
+        var1 = ((s64)t_fine) - 128000;
+        var2 = var1 * var1 * (s64)calib->dig_P6;
+        var2 = var2 + ((var1 * (s64)calib->dig_P5) << 17);
+        var2 = var2 + (((s64)calib->dig_P4) << 35);
+        var1 = ((var1 * var1 * (s64)calib->dig_P3) >> 8) +
+               ((var1 * (s64)calib->dig_P2) << 12);
+        var1 = ((((s64)1) << 47) + var1) * ((s64)calib->dig_P1) >> 33;
+
+        if (var1 == 0)
+                return 0;
+
+        P = ((((s64)1048576 - adc_P) << 31) - var2) * 3125;
+        P = P / var1;
+        var1 = (((s64)calib->dig_P9) * (P >> 13) * (P >> 13)) >> 25;
+        var2 = (((s64)calib->dig_P8) * P) >> 19;
+        P = ((P + var1 + var2) >> 8) + (((s64)calib->dig_P7) << 4);
+
+        return (u32)P;
+}
+
 static int bmp280_pi_read_raw(
                 struct iio_dev *indio_dev,
                 struct iio_chan_spec const *channel,
@@ -79,7 +117,7 @@ static int bmp280_pi_read_raw(
 
         struct bmp280_priv_state *priv_state = iio_priv(indio_dev);
         struct regmap *regmap = priv_state->regmap;
-        
+
         mutex_lock(&priv_state->lock);
 
         // 1. Take the readings in one fell swoop
@@ -95,7 +133,7 @@ static int bmp280_pi_read_raw(
 
         ret = regmap_bulk_read(regmap, BMP280_REG_READINGS, &r, BMP280_READINGS_LEN);
         if (ret) {
-                dev_err(indio_dev, "Failed to take readings at register: 0x%02X\n", BMP280_REG_READINGS);
+                dev_err(&indio_dev->dev, "Failed to take readings at register: 0x%02X\n", BMP280_REG_READINGS);
                 return ret;
         }
 
@@ -103,37 +141,38 @@ static int bmp280_pi_read_raw(
         s32 temp_adc = (r.temp_msb << 12) | (r.temp_lsb << 4) | (r.temp_xlsb >> 4);
         s32 pres_adc = (r.pres_msb << 12) | (r.pres_lsb << 4) | (r.pres_xlsb >> 4);
 
+        s32 t_fine;
+        s32 T = bmp280_pi_compensate_temp(temp_adc, &priv_state->parameter_buffer, &t_fine);
+
+        s32 P = bmp280_pi_compensate_pres(pres_adc, &priv_state->parameter_buffer, t_fine);
 
         switch (mask) {
-        case IIO_CHAN_INFO_RAW:
+        case IIO_CHAN_INFO_PROCESSED:
                 switch (channel->type) {
                 case IIO_TEMP:
-                        *out_val = DUMMY_TEMP_RAW;
-                        return IIO_VAL_INT;
+                        // returns in millidegrees C
+                        *out_val = T * 10; 
+                        ret = IIO_VAL_INT;
+                        break;
                 case IIO_PRESSURE:
-                        *out_val = DUMMY_PRESSURE_RAW;
-                        return IIO_VAL_INT;
+                        // returns in kPa
+                        *out_val = P;
+                        *out_val2 = 256 * 1000;
+                        ret = IIO_VAL_FRACTIONAL;
+                        break;
                 default:
-                        return -EINVAL;
+                        ret = -EINVAL;
+                        break;
                 }
-        case IIO_CHAN_INFO_SCALE:
-                switch (channel->type) {
-                case IIO_TEMP:
-                        *out_val = 0;
-                        *out_val2 = 1000;
-                        return IIO_VAL_INT_PLUS_MICRO;
-                case IIO_PRESSURE:
-                        *out_val = 0;
-                        *out_val2 = 100;
-                        return IIO_VAL_INT_PLUS_MICRO;
-                default:
-                        return -EINVAL;
-                }
+                break;
         default:
-                return -EINVAL;        
+                ret = -EINVAL;
+                break;
         }
 
         mutex_unlock(&priv_state->lock);
+
+        return ret;
 }
 
 static const struct iio_info bmp280_pi_info = {
