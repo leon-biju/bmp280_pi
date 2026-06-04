@@ -6,8 +6,6 @@
 
 #define DRIVER_NAME "bmp280_pi"
 
-#define DUMMY_TEMP_RAW      25123
-#define DUMMY_PRESSURE_RAW  101325
 
 // Note: Please see the official Bosch BMP280 datasheet for setting these values
 
