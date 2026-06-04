@@ -133,11 +133,11 @@ static int bmp280_pi_probe(struct i2c_client *client)
 
         ret = regmap_read(regmap, BMP280_REG_CHIP_ID, &chip_id);
         if (ret) {
-                dev_err(&client->dev, "Failed to read Chip ID!");
+                dev_err(&client->dev, "Failed to read Chip ID at register: 0x%02X\n", BMP280_REG_CHIP_ID);
                 return ret;
         }
         if (chip_id != BMP280_CHIP_ID) {
-                dev_err(&client->dev, "Expected chip ID 0x%02X, but got 0x%02X!", BMP280_CHIP_ID, chip_id);
+                dev_err(&client->dev, "Expected chip ID 0x%02X, but got 0x%02X\n", BMP280_CHIP_ID, chip_id);
                 return -ENODEV;
         }
 
@@ -147,15 +147,15 @@ static int bmp280_pi_probe(struct i2c_client *client)
         // Note: make sure the struct we are reading into is packed tight with no padding.
         ret = regmap_bulk_read(regmap, BMP280_REG_CALIB_START, &priv_state->parameter_buffer, BMP280_CALIB_LEN);
         if (ret) {
-                dev_err(&client->dev, "Failed to read Calibration parameters!");
+                dev_err(&client->dev, "Failed to read calibration parameters at register: 0x%02X\n", BMP280_REG_CALIB_START);
                 return ret;
         }
 
         // 4. Set config variable
-        u8 config = (BMP280_STANDBY_0_5MS << 5) | (BMP280_FILTER_OFF << 2) | BMP280_SPI3W_OFF;
+        u8 config = (BMP280_STANDBY_SETTING << 5) | (BMP280_FILTER_SETTING << 2) | BMP280_SPI3W_SETTING;
         ret = regmap_write(regmap, BMP280_REG_CONFIG, config);
         if (ret) {
-                dev_err(&client->dev, "Failed to write to config!");
+                dev_err(&client->dev, "Failed to write to config at register: 0x%02X\n", BMP280_REG_CONFIG);
                 return ret;
         }
 
