@@ -9,19 +9,27 @@
 #define DUMMY_TEMP_RAW      25123
 #define DUMMY_PRESSURE_RAW  101325
 
-/* Register Addresses */
-#define BMP280_REG_CHIP_ID      0xD0
-#define BMP280_REG_CONFIG       0xF5
-#define BMP280_REG_CTRL_MEAS    0xF4
-#define BMP280_REG_CALIB_START  0x88
-#define BMP280_CALIB_LEN        24
+// Note: Please see the official Bosch BMP280 datasheet for setting these values
 
-#define BMP280_CHIP_ID          0x58
+/* Register Addresses */
+#define BMP280_REG_CHIP_ID       0xD0
+#define BMP280_REG_CONFIG        0xF5
+#define BMP280_REG_CTRL_MEAS     0xF4
+#define BMP280_REG_CALIB_START   0x88
+#define BMP280_CALIB_LEN         24
+
+#define BMP280_CHIP_ID           0x58
+
 
 /* Config settings */
-#define BMP280_STANDBY_0_5MS    0x00
-#define BMP280_FILTER_OFF       0x00
-#define BMP280_SPI3W_OFF        0x00
+#define BMP280_STANDBY_SETTING   0b010 // 125ms standby
+#define BMP280_FILTER_SETTING    0b100 // filter coefficient 16
+#define BMP280_SPI3W_SETTING     0b0   // off since we use I2C
+
+/* Control settings */
+#define BMP280_MODE_CONTROL      0b11  // Normal mode
+#define BMP280_PRES_OS_RATE      0b011 // corresponds to x4
+#define BMP280_TEMP_OS_RATE      0b011 // corresponds to x4
 
 
 struct bmp280_priv_state {
@@ -159,7 +167,14 @@ static int bmp280_pi_probe(struct i2c_client *client)
                 return ret;
         }
 
-        // 5. Fill in and register the device
+        // 5. Set control variable
+        u8 ctrl_meas = (BMP280_TEMP_OS_RATE << 5) | (BMP280_PRES_OS_RATE << 2) | BMP280_MODE_CONTROL;
+        ret = regmap_write(regmap, BMP280_REG_CTRL_MEAS, ctrl_meas);
+        if (ret) {
+                dev_err(&client->dev, "Failed to write to ctrl_meas at register: 0x%02X\n", BMP280_REG_CTRL_MEAS);
+                return ret;
+        }
+        // 6. Fill in and register the device
         indio_dev->name = DRIVER_NAME;
         indio_dev->info = &bmp280_pi_info;
         indio_dev->modes = INDIO_DIRECT_MODE;
