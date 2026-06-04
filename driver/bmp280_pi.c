@@ -12,6 +12,8 @@
 // Note: Please see the official Bosch BMP280 datasheet for setting these values
 
 /* Register Addresses */
+#define BMP280_REG_READINGS      0xF7
+#define BMP280_READINGS_LEN      6
 #define BMP280_REG_CHIP_ID       0xD0
 #define BMP280_REG_CONFIG        0xF5
 #define BMP280_REG_CTRL_MEAS     0xF4
@@ -59,21 +61,49 @@ struct bmp280_priv_state {
 static const struct iio_chan_spec bmp280_pi_channels[] = {
         {
                 .type               = IIO_TEMP,
-                .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),
+                .info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
         },
         {
                 .type               = IIO_PRESSURE,
-                .info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),
+                .info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
         },
 };
 
-/* For raw vals reads to just out_val with the raw value
-   For scale values reads to out_val and out_val2 s.t. scale = out_val + out_val2(1e-6) */
+
 static int bmp280_pi_read_raw(
-                struct iio_dev *indio_device,
+                struct iio_dev *indio_dev,
                 struct iio_chan_spec const *channel,
                 int *out_val, int *out_val2, long mask)
 {
+        int ret;
+
+        struct bmp280_priv_state *priv_state = iio_priv(indio_dev);
+        struct regmap *regmap = priv_state->regmap;
+        
+        mutex_lock(&priv_state->lock);
+
+        // 1. Take the readings in one fell swoop
+        struct {
+                u8 pres_msb;
+                u8 pres_lsb;
+                u8 pres_xlsb;
+
+                u8 temp_msb;
+                u8 temp_lsb;
+                u8 temp_xlsb;
+        } r;
+
+        ret = regmap_bulk_read(regmap, BMP280_REG_READINGS, &r, BMP280_READINGS_LEN);
+        if (ret) {
+                dev_err(indio_dev, "Failed to take readings at register: 0x%02X\n", BMP280_REG_READINGS);
+                return ret;
+        }
+
+        // 2. Assemble readings proper
+        s32 temp_adc = (r.temp_msb << 12) | (r.temp_lsb << 4) | (r.temp_xlsb >> 4);
+        s32 pres_adc = (r.pres_msb << 12) | (r.pres_lsb << 4) | (r.pres_xlsb >> 4);
+
+
         switch (mask) {
         case IIO_CHAN_INFO_RAW:
                 switch (channel->type) {
@@ -102,6 +132,8 @@ static int bmp280_pi_read_raw(
         default:
                 return -EINVAL;        
         }
+
+        mutex_unlock(&priv_state->lock);
 }
 
 static const struct iio_info bmp280_pi_info = {
