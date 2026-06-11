@@ -123,3 +123,10 @@ cat /sys/bus/iio/devices/iio:device0/in_temp_input
 # Pressure in kPa
 cat /sys/bus/iio/devices/iio:device0/in_pressure_input
 ```
+
+## License
+
+This project uses different licenses for its two components:
+
+- **`driver/`**: GNU General Public License v2.0 only ([`driver/LICENSE`](driver/LICENSE)). The kernel driver uses GPL-only kernel symbols like IIO, regmap, etc. which requires GPLv2 compatibility.
+- **`daemon/`**: MIT License ([`daemon/LICENSE`](daemon/LICENSE)). The userspace daemon communicates with the driver only through sysfs, so it is not a derived work of the kernel and can use a permissive license.

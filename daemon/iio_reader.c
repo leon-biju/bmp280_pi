@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 #include "iio_reader.h"
 
 #include <stdio.h>
