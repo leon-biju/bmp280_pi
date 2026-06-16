@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -pedantic
 
-bmp280d: daemon.c iio_reader.c iio_reader.h
-	$(CC) $(CFLAGS) -o build/$@ daemon.c iio_reader.c
+bmp280d:
+	$(CC) $(CFLAGS) -o build/$@ daemon.c iio_reader.c ring_buffer.c
 
 clean:
 	rm -f bmp280d

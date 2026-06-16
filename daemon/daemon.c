@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "iio_reader.h"
+#include "ring_buffer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,12 +31,28 @@ int main(int argc, char *argv[])
 
 	printf("polling %s every %ds\n", device_path, interval_s);
 
-	struct iio_reading reading;
+	struct reading sample;
+
+	struct ring_buf buffer;
+
+	if (ring_buf_init(&buffer, 12)) {
+		fprintf(stderr, "Failed to initialise ring buffer!\n");
+		return 1;
+	}
+
 	while (1) {
-		if (iio_reader_read(&reader, &reading)) {
+		if (iio_reader_read(&reader, &sample)) {
 			fprintf(stderr, "read failed\n");
 		} else {
-			printf("temp=%.2f°C  pressure=%.4f kPa\n", reading.temp_c, reading.pressure_kpa);
+			// add to buffer
+			ring_buf_push(&buffer, &sample);
+
+			// print out whats in the buffer
+			printf("{");
+			for (size_t i = 0; i < buffer.count; i++) {
+				printf("%f, ", ring_buf_get(&buffer, i)->temp_c);
+			}
+			printf("}\n");
 		}
 		sleep(interval_s);
 	}

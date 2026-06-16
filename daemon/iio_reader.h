@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
-struct iio_reading {
+#include <time.h>
+
+struct reading {
 	double temp_c;
 	double pressure_kpa;
+	time_t timestamp;
 };
 
 struct iio_reader {
@@ -12,4 +15,4 @@ struct iio_reader {
 };
 
 int iio_reader_open(struct iio_reader *reader, const char *device_path);
-int iio_reader_read(struct iio_reader *reader, struct iio_reading *out);
+int iio_reader_read(struct iio_reader *reader, struct reading *out);

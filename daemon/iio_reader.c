@@ -34,7 +34,7 @@ int iio_reader_open(struct iio_reader *reader, const char *device_path)
     return 0;
 }
 
-int iio_reader_read(struct iio_reader *reader, struct iio_reading *out)
+int iio_reader_read(struct iio_reader *reader, struct reading *out)
 {
     double temp_raw;
     if (read_sysfs_double(reader->temp_path, &temp_raw))
@@ -45,6 +45,8 @@ int iio_reader_read(struct iio_reader *reader, struct iio_reading *out)
 
     /* Driver returns millidegrees C as per IIO standard */
     out->temp_c = temp_raw / 1000.0;
+
+    out->timestamp = time(NULL);
 
     return 0;
 }
