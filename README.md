@@ -6,6 +6,12 @@ plus a userspace daemon that polls the sensor and serves the readings.
 Both components can be built two ways: **natively** on the Pi (simple, but might be long depending on your hardware), or **cross-compiled** from another machine (faster, but the driver needs a synced kernel source tree). 
 The same `CROSS_COMPILE` switch selects the mode for each Makefile: leave it unset to build natively, set `CROSS_COMPILE=aarch64-linux-gnu-` to cross-compile.
 
+> **Warning for kernel updates.** The driver is tied to the exact kernel it was built against. Whenever the Pi's kernel is upgraded, the old module stops loading into the new kernel.
+> So after a kernal update, you must rebuild and reinstall it. This applies to both build modes.
+> Native build needs the new `linux-headers-$(uname -r)` (This should automatically be updated using any good package manager).
+> Cross-compiled build needs the `rpi-linux` source re-synced to the new kernel (see below). 
+> The daemon is userspace so is unaffected in both cases.
+
 ## Native Building (Easy)
 
 Building directly on the Pi. Install the build tools and the
