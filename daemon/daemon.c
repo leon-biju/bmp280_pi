@@ -1,14 +1,25 @@
 // SPDX-License-Identifier: MIT
+#define _POSIX_C_SOURCE 200809L // Need this for sigaction()
+
 #include "iio_reader.h"
 #include "ring_buffer.h"
 #include "stats.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #define DEFAULT_DEVICE_PATH "/sys/bus/iio/devices/iio:device0"
 #define DEFAULT_INTERVAL_S  2
+
+static volatile sig_atomic_t running = 1;
+
+static void handle_signal(int sig)
+{
+	(void)sig;
+	running = 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -23,6 +34,11 @@ int main(int argc, char *argv[])
 	}
 
 	setvbuf(stdout, NULL, _IOLBF, 0);
+
+	// systemd sends SIGTERM on systemctl stop
+	struct sigaction sa = { .sa_handler = handle_signal };
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SIGINT, &sa, NULL);
 
 	struct iio_reader reader;
 	if (iio_reader_open(&reader, device_path)) {
@@ -40,8 +56,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Failed to initialise ring buffer!\n");
 		return 1;
 	}
-
-	while (1) {
+	while (running) {
 		if (iio_reader_read(&reader, &sample)) {
 			fprintf(stderr, "read failed\n");
 		} else {
@@ -61,6 +76,8 @@ int main(int argc, char *argv[])
 		}
 		sleep(interval_s);
 	}
-	
+
+	printf("shutting down\n");
+	ring_buf_free(&buffer);
 	return 0;
 }

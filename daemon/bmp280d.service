@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=BMP280 sensor daemon
+Documentation=https://github.com/leon-biju/bmp280_pi
+# The driver must have registered its IIO device before we start polling.
+# It isn't a systemd unit, so we can't order against it directly; instead we
+# rely on Restart= below to retry until /sys/bus/iio/devices/iio:device0 exists.
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/bmp280d
+Restart=on-failure
+RestartSec=2
+
+# The daemon only needs to read sysfs and (later) bind a TCP port.
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

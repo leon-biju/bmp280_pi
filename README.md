@@ -1,8 +1,7 @@
 # bmp280_pi
 
-A custom Linux IIO kernel driver for the BMP280 sensor on the Raspberry Pi.
-
-Note: A daemon will be implemented soon 
+A custom Linux IIO kernel driver for the BMP280 sensor on the Raspberry Pi,
+plus a userspace daemon that polls the sensor and serves the readings.
 
 There are two ways to build the driver: directly on the Pi (simple), or
 cross-compiling from another machine (faster, but does requires syncing the kernel
@@ -123,6 +122,39 @@ cat /sys/bus/iio/devices/iio:device0/in_temp_input
 # Pressure in kPa
 cat /sys/bus/iio/devices/iio:device0/in_pressure_input
 ```
+
+## Daemon
+
+The daemon (`daemon/`) polls the IIO device the driver exposes and computes rolling statistics
+(min/max/mean for temperature and pressure). An HTTP API will be dojne as well
+
+Build it:
+
+```bash
+cd daemon
+make
+```
+
+The binary lands in `daemon/build/bmp280d`. It defaults to polling
+`/sys/bus/iio/devices/iio:device0` every 2 seconds; override with `-d <path>`
+and `-i <seconds>`. For local development without hardware, `mock_iio.sh`
+populates a fake sysfs tree you can point the daemon at.
+
+### Running as a service
+
+The daemon is designed to be run under systemd. Install the binary and unit, then
+enable it:
+
+```bash
+sudo make install
+sudo systemctl daemon-reload
+sudo systemctl enable --now bmp280d
+```
+
+It logs to the journal (`journalctl -u bmp280d -f`), restarts on failure (which
+also covers the case where the driver isn't loaded yet), and runs locked down
+with `DynamicUser` and a read-only filesystem view. `sudo make uninstall`
+removes it.
 
 ## License
 
