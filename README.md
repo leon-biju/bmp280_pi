@@ -171,12 +171,34 @@ cat /sys/bus/iio/devices/iio:device0/in_pressure_input
 
 ## Daemon usage
 
-The daemon (`daemon/`) polls the IIO device the driver exposes and computes rolling statistics
-(min/max/mean for temperature and pressure). An HTTP API will be done as well.
+The daemon (`daemon/`) polls the IIO device the driver exposes, computes rolling
+statistics (min/max/mean for temperature and pressure), and serves the data over
+a small HTTP API. A background thread does the polling and publishes a
+mutex-protected snapshot; the main thread runs the HTTP server.
 
-It defaults to polling `/sys/bus/iio/devices/iio:device0` every 2 seconds;
-override with `-d <path>` and `-i <seconds>`. For local development without
-hardware, `mock_iio.sh` populates a fake sysfs tree you can point the daemon at.
+It defaults to polling `/sys/bus/iio/devices/iio:device0` every 2 seconds and
+serving on port 8080. Override with `-d <path>`, `-i <seconds>`, and `-p <port>`.
+For local development without hardware, `mock_iio.sh` populates a fake sysfs tree
+you can point the daemon at.
+
+### HTTP API
+
+All endpoints are read-only `GET`s returning JSON. Pressure is reported in
+hectopascals (hPa).
+
+```bash
+# Latest reading
+curl http://<pi-ip>:8080/api/v1/current
+# {"temperature_c":22.45,"pressure_hpa":1013.25,"timestamp":"2026-06-12T14:30:00Z"}
+
+# Rolling statistics over the recent window
+curl http://<pi-ip>:8080/api/v1/average
+# {"temperature_c":{"mean":..,"min":..,"max":..},"pressure_hpa":{...},"samples":12}
+
+# Tripped thresholds (alert logic is the next milestone)
+curl http://<pi-ip>:8080/api/v1/alerts
+# {"alerts":[]}
+```
 
 ### Running as a service
 
