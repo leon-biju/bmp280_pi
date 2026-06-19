@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "iio_reader.h"
 #include "ring_buffer.h"
+#include "stats.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,15 +45,19 @@ int main(int argc, char *argv[])
 		if (iio_reader_read(&reader, &sample)) {
 			fprintf(stderr, "read failed\n");
 		} else {
-			// add to buffer
 			ring_buf_push(&buffer, &sample);
 
-			// print out whats in the buffer
-			printf("{");
-			for (size_t i = 0; i < buffer.count; i++) {
-				printf("%f, ", ring_buf_get(&buffer, i)->temp_c);
+			struct rolling_stats stats;
+			if (rolling_stats_compute(&buffer, &stats) == 0) {
+				printf("temp  %.2f C (min %.2f, max %.2f, avg %.2f)  "
+				       "pres  %.2f kPa (min %.2f, max %.2f, avg %.2f)  "
+				       "[%zu samples]\n",
+				       sample.temp_c,
+				       stats.temp.min, stats.temp.max, stats.temp.mean,
+				       sample.pressure_kpa,
+				       stats.pressure.min, stats.pressure.max, stats.pressure.mean,
+				       stats.sample_count);
 			}
-			printf("}\n");
 		}
 		sleep(interval_s);
 	}
