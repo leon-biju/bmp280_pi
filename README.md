@@ -72,10 +72,7 @@ scp pi@<pi-ip>:/boot/config-$(ssh pi@<pi-ip> uname -r) rpi-linux/.config
 scp pi@<pi-ip>:/lib/modules/$(ssh pi@<pi-ip> uname -r)/build/Module.symvers rpi-linux/
 ```
 
-The Debian packaging overrides the localversion at build time, so the copied
-`.config` says `CONFIG_LOCALVERSION="-v8"` even though the kernel release is
-`...+rpt-rpi-v8`. Set it to the real suffix so the module's vermagic matches,
-and pass an empty `LOCALVERSION=` so git doesn't append a stray `+`:
+The Debian packaging overrides the localversion at build time, so the copied `.config` says `CONFIG_LOCALVERSION="-v8"` even though the kernel release is `...+rpt-rpi-v8`. Set it to the real suffix so the module's vermagic matches, and pass an empty `LOCALVERSION=` so git doesn't append a stray `+`:
 
 ```bash
 sed -i 's|^CONFIG_LOCALVERSION=.*|CONFIG_LOCALVERSION="+rpt-rpi-v8"|' rpi-linux/.config
@@ -87,14 +84,11 @@ make -C rpi-linux ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- LOCALVERSION= modu
 cat rpi-linux/include/generated/utsrelease.h
 ```
 
-**After a kernel update on the Pi**, redo all of the above (fetch/checkout the
-matching commit, re-copy `.config` and `Module.symvers`, re-run `olddefconfig`
-and `modules_prepare`), then rebuild and redeploy the module.
+**After a kernel update on the Pi**, redo all of the above (fetch/checkout the matching commit, re-copy `.config` and `Module.symvers`, re-run `olddefconfig` and `modules_prepare`), then rebuild and redeploy the module.
 
 ### Build the driver
 
-Setting `CROSS_COMPILE` switches the driver Makefile to cross mode: it builds
-against the `rpi-linux` tree prepared above with `ARCH=arm64`.
+Setting `CROSS_COMPILE` switches the driver Makefile to cross mode: it builds against the `rpi-linux` tree prepared above with `ARCH=arm64`.
 
 ```bash
 cd driver
@@ -105,8 +99,7 @@ The module ends up in `driver/build/bmp280_pi.ko`.
 
 ### Build the daemon
 
-The daemon uses the same switch, routed through `CC`, so it needs no kernel
-tree:
+The daemon uses the same switch, routed through `CC`, so it needs no kernel tree:
 
 ```bash
 cd daemon
@@ -171,15 +164,13 @@ cat /sys/bus/iio/devices/iio:device0/in_pressure_input
 
 ## Daemon usage
 
-The daemon (`daemon/`) polls the IIO device the driver exposes, computes rolling
-statistics (min/max/mean for temperature and pressure), and serves the data over
-a small HTTP API. A background thread does the polling and publishes a
-mutex-protected snapshot; the main thread runs the HTTP server.
+The daemon (`daemon/`) polls the IIO device the driver exposes, computes rolling statistics (min/max/mean for temperature and pressure), and serves the data over a HTTP API. 
+A background thread does the polling and publishes a snapshot and the main thread runs the HTTP server.
 
-It defaults to polling `/sys/bus/iio/devices/iio:device0` every 2 seconds and
-serving on port 8080. Override with `-d <path>`, `-i <seconds>`, and `-p <port>`.
-For local development without hardware, `mock_iio.sh` populates a fake sysfs tree
-you can point the daemon at.
+Note: the server itself is single-threaded since the requests aren't that complicated and this is a relatively simple application.
+
+The defaults are polling `/sys/bus/iio/devices/iio:device0` every 2 seconds and serving on port 8080.
+You can override these with `-d <path>`, `-i <seconds>`, and `-p <port>`. For local development without hardware, `mock_iio.sh` populates a fake sysfs tree you can point the daemon at.
 
 ### HTTP API
 
@@ -202,8 +193,7 @@ curl http://<pi-ip>:8080/api/v1/alerts
 
 ### Running as a service
 
-The daemon is designed to be run under systemd. Install the binary and unit, then
-enable it:
+The daemon is designed to be run under systemd. Install the binary and unit, then enable it:
 
 ```bash
 sudo make install
@@ -211,10 +201,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now bmp280d
 ```
 
-It logs to the journal (`journalctl -u bmp280d -f`), restarts on failure (which
-also covers the case where the driver isn't loaded yet), and runs locked down
-with `DynamicUser` and a read-only filesystem view. `sudo make uninstall`
-removes it.
+It logs to the journal (`journalctl -u bmp280d -f`), restarts on failure (which also covers the case where the driver isn't loaded yet), and runs locked down with `DynamicUser` and a read-only filesystem view. `sudo make uninstall` will remove it.
 
 ## License
 
