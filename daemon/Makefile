@@ -1,4 +1,5 @@
-CC = gcc
+CROSS_COMPILE ?=
+CC = $(CROSS_COMPILE)gcc
 CFLAGS = -Wall -Wextra -std=c11 -pedantic
 
 PREFIX  = /usr/local
@@ -6,6 +7,7 @@ BINDIR  = $(PREFIX)/bin
 UNITDIR = /etc/systemd/system
 
 bmp280d:
+	@mkdir -p build
 	$(CC) $(CFLAGS) -o build/$@ *.c
 
 install: bmp280d
